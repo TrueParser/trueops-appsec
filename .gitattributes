@@ -1,0 +1,2 @@
+# gofmt requires LF line endings, including on Windows CI runners.
+*.go text eol=lf
