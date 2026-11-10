@@ -269,11 +269,28 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
           $assetPaths = @(Get-ChildItem release -File | ForEach-Object { $_.FullName })
+          $releaseJson = gh release list --repo $env:GITHUB_REPOSITORY --limit 100 --exclude-drafts --exclude-pre-releases --json tagName,publishedAt
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to list published GitHub releases.' }
+          $releases = @()
+          $releaseText = $releaseJson -join "`n"
+          if (-not [string]::IsNullOrWhiteSpace($releaseText)) {
+            $releases = $releaseText | ConvertFrom-Json
+          }
+          $previousRelease = $releases |
+            Where-Object { $_.tagName -ne $env:RELEASE_TAG } |
+            Sort-Object { [DateTime]$_.publishedAt } |
+            Select-Object -Last 1
           $releaseNotes = 'Linux amd64 (64-bit Intel/AMD) and arm64 binaries. See manifest.json, SHA256SUMS and GitHub attestations for build identity and provenance.'
           $notesPath = Join-Path $env:RUNNER_TEMP 'trueops-appsec-release-notes.txt'
           $releaseNotes | Set-Content -Encoding utf8NoBOM $notesPath
           $releaseOptions = @('--draft', '--verify-tag', '--repo', $env:GITHUB_REPOSITORY,
-            '--title', "TrueOps AppSec $env:RELEASE_TAG", '--notes-file', $notesPath)
+            '--title', "TrueOps AppSec $env:RELEASE_TAG", '--notes-file', $notesPath, '--generate-notes')
+          if ($previousRelease) {
+            Write-Output "Generating release notes from $($previousRelease.tagName) to $env:RELEASE_TAG."
+            $releaseOptions += @('--notes-start-tag', $previousRelease.tagName)
+          } else {
+            Write-Output "No previous published stable release found; using GitHub's default generated notes."
+          }
           if ($env:RELEASE_TAG.Contains('-')) { $releaseOptions += '--prerelease' }
           gh release create $env:RELEASE_TAG @assetPaths @releaseOptions
           $verifyDir = Join-Path $env:RUNNER_TEMP 'trueops-appsec-upload-verification'

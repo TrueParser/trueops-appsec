@@ -112,6 +112,13 @@ marked as prereleases. Tag names must be safe archive-name components, starting
 with `v` and containing only letters, digits, dots, plus signs, underscores or
 hyphens. Tags and commits are created/pushed by the maintainer, not by the workflow.
 
+Release notes include GitHub's generated PR/contributor summary and full changelog
+link, preceded by the binary download information. The starting tag is the most
+recently published stable release among the latest 100 stable releases, excluding
+the current tag; drafts and prereleases are
+excluded. The ending tag is the release being built, not the latest branch commit.
+With no previous stable release, GitHub selects the default starting point.
+
 For a tag such as `v0.1.0`, downloads include:
 
 ```text
