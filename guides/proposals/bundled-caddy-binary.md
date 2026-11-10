@@ -1,12 +1,12 @@
-# Independent bundled Caddy distribution
+# TrueOps AppSec — standalone Caddy distribution
 
 **Status:** Proposed. This document defines a new repository; it does not create or publish it.
 
-**Recommended repository name:** `trueops-caddy`.
+**Repository name:** `trueops-appsec`.
 
-**Proposed local location:** `D:\Development\trueops-caddy`, as an independent Git repository.
+**Proposed local location:** `D:\Development\trueops-appsec`, as an independent Git repository.
 
-**Hosting:** A new public GitHub repository under the maintainer's chosen account or organization. Public releases provide direct binary downloads without requiring a GitHub account.
+**GitHub repository:** [TrueParser/trueops-appsec](https://github.com/TrueParser/trueops-appsec). Public releases provide direct binary downloads without requiring a GitHub account.
 
 ## 1. Objective
 
@@ -15,6 +15,10 @@ Build and publish a standalone Caddy distribution containing upstream Caddy and 
 Operators download a ready-to-run binary. They do not need Go, `xcaddy`, a source checkout or another management application on the deployment machine. The repository must build, test, release and operate independently.
 
 The first custom module provides an efficient in-process CrowdSec AppSec integration. Other reviewed modules can be included in future releases without creating a fork, a runtime plugin installer or another distribution architecture.
+
+The [locked product invariants](../product-invariants.md) define functional and
+performance acceptance. Repository ownership, upstream pins and artifact
+integrity are governed by the separate [build/release invariants](../releasing.md#build-and-release-invariants).
 
 ## 2. Repository and upstream boundaries
 
@@ -48,6 +52,7 @@ Caddy documents both [custom builds](https://caddyserver.com/docs/build) and [mo
 - A second application proxy or a public-to-private Caddy round trip for AppSec enforcement.
 - Bundling or managing the CrowdSec engine, firewall services or host operating-system packages. A configured AppSec engine is needed only when that feature is enabled.
 - A new detection engine, rule language, rule editor, arbitrary plugin marketplace or on-demand compilation on deployment hosts.
+- Arbitrary rule editors, a new rule language or a local policy/rate-limit engine. Reviewed, pinned native CrowdSec profiles may provide CRS, API schema validation, Bot Detection and engine-side rate limiting; the module integrates their native outcomes.
 - An automatic host updater, package repository, container platform or unrelated service framework.
 
 ## 4. Minimal repository shape
@@ -88,7 +93,8 @@ Required behavior:
 
 - Protection is opt-in per configured virtual host/path. Both policies off means no inspection calls, body capture, allow cache lookup or challenge handling on the ordinary content path.
 - WAF-only, Bot-only and combined policies remain independent. A valid bot cookie does not bypass WAF inspection; a bot exclusion does not disable a matching WAF policy.
-- Bind each configured scope to its reviewed native AppSec profile. Public request headers cannot select a weaker profile or forge the original client identity.
+- Site-scoped WAF or Bot Detection outcomes must not automatically create gateway-wide firewall decisions. A detection on Site A must not affect Site B through shared profiles, caches or firewall enforcement. Verify all four combinations: off, WAF-only, Bot-only and combined.
+- Bind each configured scope to its reviewed, pinned native AppSec profile. Public request headers cannot select a weaker profile or forge the original client identity.
 - Use Caddy's trusted-client identity and configuration lifecycle. Keep engine credentials out of request logs, responses, fixtures and release assets.
 - Accept only an explicit native allow as permission to continue. Infrastructure errors, malformed responses and browser challenge statuses are not allow decisions.
 - Implement the complete [CrowdSec challenge protocol](https://docs.crowdsec.net/docs/appsec/bot_detection/challenge_protocol/), including envelope decoding, browser status/body/headers/CSP, repeated cookies, assets and submission exchanges. HTTP 200 or 307 from a challenge does not invoke the application handler.
@@ -96,11 +102,18 @@ Required behavior:
 - Define body/resource limits from the supported protocol and measured requirements. Do not turn a prototype fixture limit into a product default. Oversize, compressed and streaming behavior must be explicit and tested.
 - Preserve streaming and upgrade behavior outside inspected scopes. Clearly define supported handshake/body inspection; do not claim inspection of WebSocket frames or unbounded streaming bodies without proof.
 - Specify and test timeout/failure behavior before a stable release. Never obtain better benchmark results by weakening inspection, reusing an unauthorized allow decision or discarding native denials.
-- Keep request-local data request-local. Shared transports and reusable buffers follow Caddy's lifecycle; reload and shutdown release owned resources without dropping active requests or leaking goroutines.
+- Keep request-local data request-local. Shared transports and reusable buffers follow Caddy's lifecycle; reload and shutdown release owned resources without leaking goroutines or prematurely releasing resources used by active requests; preserve Caddy's native graceful reload/shutdown behavior and configured shutdown limits.
 
 ## 6. Performance contract — primary design driver
 
 Choose the simplest correct implementation with the lowest measured request-path cost. A feature or abstraction must justify its latency, allocations and operational cost.
+
+Performance is a primary acceptance requirement. Target zero module-added heap
+allocations on the disabled path. Minimize protected-path allocations, body
+copies and connection overhead. Verify against matching upstream Caddy using
+throughput, tail latency, CPU, allocations and retained memory. Preserve
+correctness and security; custom allocators or networking machinery require
+demonstrated necessity. No malloc-free or syscall-free architecture is required.
 
 ### Implementation requirements
 
@@ -134,7 +147,7 @@ Disabled-path behavior must be materially equivalent to the matching upstream co
 
 - Perform normal development, dependency work, tests and builds on Windows.
 - Build from the independent module with a pinned toolchain and reproducible inputs. A thin Go launcher is sufficient; `xcaddy` may be used as a pinned development tool when useful, but is not required on deployment hosts.
-- Initial proposed release targets are Linux/amd64 and Windows/amd64, with actual native acceptance for each published target. Linux/arm64 and other platforms are subsequent explicit additions after native verification.
+- Tagged Linux releases target Linux/amd64 (64-bit Intel/AMD) and Linux/arm64, with actual native acceptance for each published target. Windows/amd64 remains a development/acceptance target; Windows binary publication and other platforms require separately scoped release work.
 - Start from reviewed Caddy/Go pins. The existing prototype's Caddy 2.11.4 / Go 1.26.6 combination is an experimental reference, not a claim that it is the newest or production-selected release.
 - Prefer `CGO_ENABLED=0` when all selected modules support it. A future module requiring CGO or a platform-specific runtime must receive an explicit support/build review before inclusion.
 - Record module versions, source commit, toolchain, target and build flags in the release manifest. Preserve upstream version information and native `caddy version`, `caddy build-info` and `caddy list-modules` diagnostics.
@@ -145,6 +158,12 @@ Disabled-path behavior must be materially equivalent to the matching upstream co
 ### Pull requests and main-branch verification
 
 Use explicit OS runners. Windows jobs perform formatting, vet, focused/full repository tests and build both intended targets. Cross-compiled integration test executables and release candidates are then exercised on Ubuntu 24.04 for Linux-specific runtime behavior; no second Go development environment is required there. Windows runtime smoke checks run natively.
+
+The [tagged Linux workflow](../../.github/workflows/release.yml) builds on
+Windows and checks Linux/amd64 and Linux/arm64 candidates on matching Ubuntu
+runners. See [release operation](../releasing.md). Maintainer-local dependencies
+are explicitly gated out of GitHub runs; their required acceptance evidence is
+reviewed for the exact candidates before release-environment approval.
 
 Checks cover module registration, CLI/configuration compatibility, body correctness, direct content-handler continuation, reload/shutdown, inactive-path purity, secret exclusion and protocol errors. Real AppSec/browser acceptance and controlled performance evidence remain required before declaring the corresponding feature production-ready.
 
@@ -166,8 +185,8 @@ Use [GitHub Releases](https://docs.github.com/en/repositories/releasing-projects
 Recommended assets for a distribution tag:
 
 ```text
-trueops-caddy_v0.1.0_linux_amd64.tar.gz
-trueops-caddy_v0.1.0_windows_amd64.zip
+trueops-appsec_v0.1.0_linux_amd64.tar.gz
+trueops-appsec_v0.1.0_linux_arm64.tar.gz
 SHA256SUMS
 manifest.json
 ```

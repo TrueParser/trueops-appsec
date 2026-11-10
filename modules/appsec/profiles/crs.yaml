@@ -1,0 +1,76 @@
+# Native file-rule wrapper, not a Caddy-side rule engine.
+# Extract the SHA-256 verified archive in pins.json beneath CrowdSec's data_dir
+# as coreruleset-4.30.0/. Copy its crs-setup.conf.example to crs-setup.conf and
+# review/record that configuration's checksum. Copy verified rules/*.data files
+# to the ROOT of data_dir: CrowdSec flattens rule text before Coraza loads it.
+# Native data declarations below use immutable commit URLs for the same bytes.
+# See pins.json for the exact archive; never use Hub's floating CRS data URLs.
+# Native engine loading/regression acceptance is required before production use.
+name: trueops/crs-v4.30
+seclang_rules:
+  - SecRuleEngine On
+  - SecRequestBodyAccess On
+seclang_files_rules:
+  - coreruleset-4.30.0/crs-setup.conf
+  - coreruleset-4.30.0/rules/*.conf
+data:
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/ai-critical-artifacts.data
+    dest_file: ai-critical-artifacts.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/asp-dotnet-errors.data
+    dest_file: asp-dotnet-errors.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/iis-errors.data
+    dest_file: iis-errors.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/java-classes.data
+    dest_file: java-classes.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/lfi-os-files.data
+    dest_file: lfi-os-files.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/php-errors.data
+    dest_file: php-errors.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/php-function-names-933150.data
+    dest_file: php-function-names-933150.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/php-variables.data
+    dest_file: php-variables.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/restricted-files.data
+    dest_file: restricted-files.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/ruby-errors.data
+    dest_file: ruby-errors.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/scanners-user-agents.data
+    dest_file: scanners-user-agents.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/sql-errors.data
+    dest_file: sql-errors.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/ssrf-no-scheme.data
+    dest_file: ssrf-no-scheme.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/ssrf.data
+    dest_file: ssrf.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/unix-shell-aliases.data
+    dest_file: unix-shell-aliases.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/unix-shell-builtins.data
+    dest_file: unix-shell-builtins.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/unix-shell.data
+    dest_file: unix-shell.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/web-shells-asp.data
+    dest_file: web-shells-asp.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/web-shells-php.data
+    dest_file: web-shells-php.data
+    type: modsec
+  - source_url: https://raw.githubusercontent.com/coreruleset/coreruleset/e03a4f6dabc7a30ebd8c52c97d28a154f590a48f/rules/windows-powershell-commands.data
+    dest_file: windows-powershell-commands.data
+    type: modsec

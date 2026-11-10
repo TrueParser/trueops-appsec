@@ -1,0 +1,12 @@
+# Load after the pinned crowdsecurity/appsec-default profile.
+# Limits here match the pinned engine's default 10 MiB ceiling; Caddy's explicit
+# max_body_bytes must not exceed this or Coraza's configured request-body limit.
+# Keep allow/drop wire codes at 200/403. Do not add global allow or body bypasses.
+name: trueops/native-waf
+default_remediation: ban
+on_load:
+  - apply:
+      - SetMaxBodySize(10485760)
+      - SetBodySizeExceededAction("drop")
+inband_rules:
+  - trueops/crs-v4.30

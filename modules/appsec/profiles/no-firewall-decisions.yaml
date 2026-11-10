@@ -1,0 +1,9 @@
+# For a DEDICATED AppSec LAPI only. First profile, ahead of default ban profiles.
+# Native alerts remain visible, but none automatically becomes an IP/range ban.
+# A shared LAPI instead requires complete reviewed AppSec scenario/kind filters
+# and explicit cross-site acceptance; do not apply this blanket rule to it.
+name: trueops-appsec-no-firewall-decisions
+filters:
+  - "true"
+decisions: []
+on_success: break

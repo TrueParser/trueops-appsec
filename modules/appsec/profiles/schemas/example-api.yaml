@@ -1,0 +1,24 @@
+# Self-contained example schema; replace and checksum for the actual API.
+openapi: 3.0.3
+info:
+  title: Example API
+  version: 1.0.0
+paths:
+  /api/items:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+      responses:
+        '201':
+          description: Created

@@ -1,0 +1,52 @@
+# Operator-owned EXAMPLE for one site's external CrowdSec v1.8.2 engine.
+# Nothing in this directory installs, configures or starts an engine.
+# Install/verify only the Hub assets in pins.json, at the specified commit and
+# hashes. No collection install, automatic Hub upgrade or unpinned CRS download.
+# Install native-waf.yaml and native-features.yaml as local appsec-configs, and
+# crs.yaml as a local appsec-rule. Native features are opt-in application policy.
+# Add trueops/native-features to WAF/combined appsec_configs only when its example
+# routes, quotas and schema have been reviewed for this application.
+# operator/site-a-challenge must be a PRIVATE native appsec-config supplying a
+# strong challenge.master_secret shared by this site's Bot and combined sources.
+# Do not commit that secret or reuse it for another site's trust domain.
+# Keep LAPI allowlists from bypassing WAF. Dedicated AppSec LAPI profiles must
+# use no-firewall-decisions.yaml before any default IP/range ban profiles.
+source: appsec
+name: site-a-combined
+listen_addr: 127.0.0.1:7422
+path: /
+body_read_timeout: 0
+appsec_configs:
+  - crowdsecurity/appsec-default
+  - trueops/native-waf
+  - crowdsecurity/appsec-bot-challenge-scoring
+  - crowdsecurity/appsec-bot-challenge-scoring-balanced
+  - operator/site-a-challenge
+labels:
+  type: appsec
+  site: site-a
+---
+source: appsec
+name: site-a-waf
+listen_addr: 127.0.0.1:7423
+path: /
+body_read_timeout: 0
+appsec_configs:
+  - crowdsecurity/appsec-default
+  - trueops/native-waf
+labels:
+  type: appsec
+  site: site-a
+---
+source: appsec
+name: site-a-bot
+listen_addr: 127.0.0.1:7424
+path: /
+body_read_timeout: 0
+appsec_configs:
+  - crowdsecurity/appsec-bot-challenge-scoring
+  - crowdsecurity/appsec-bot-challenge-scoring-balanced
+  - operator/site-a-challenge
+labels:
+  type: appsec
+  site: site-a

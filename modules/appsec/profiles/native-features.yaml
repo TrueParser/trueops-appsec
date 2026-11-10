@@ -1,0 +1,20 @@
+# OPTIONAL application policy example. Load with the WAF or combined profile
+# only after reviewing this site's routes, quotas and schema. These example
+# values are not product defaults. Do not load in the Bot-only datasource.
+# Copy schemas/example-api.yaml to data_dir/schemas/example-api.yaml and record
+# its checksum alongside any reviewed application-specific replacement schema.
+# The engine validates request shape, not credential authenticity.
+name: trueops/native-features
+on_load:
+  - apply:
+      - LoadAPISchemaWithName("example_api", "example-api.yaml")
+inband:
+  pre_eval:
+    - filter: req.URL.Path startsWith "/api/" && !ValidateRequestWithSchema("example_api")
+      apply:
+        - DropRequest("API schema violation")
+    - filter: req.URL.Path == "/login" && req.Method == "POST"
+      apply:
+        - RateLimit("login", "5/m")
+# Do not use SkipProcessing/DisableBodyInspection as a Bot-only exclusion.
+# Each site's datasource owns these counters; no shared IP-wide firewall bans.

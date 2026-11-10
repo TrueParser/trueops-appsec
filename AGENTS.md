@@ -1,6 +1,7 @@
-# AI Agent Guidelines
+# TrueOps AppSec Agent Guidelines
 
-This file is the working contract for AI agents contributing to `trueops-caddy`.
+This file is the working contract for AI agents contributing to TrueOps AppSec
+(`trueops-appsec`).
 
 The scope is the standalone Go/Caddy distribution defined in
 [guides/proposals/bundled-caddy-binary.md](guides/proposals/bundled-caddy-binary.md).
@@ -38,6 +39,7 @@ settle the public module identifiers and configuration fields reserved for audit
 - Use Windows runners for the main repository pipeline and normal project verification.
 - Add narrowly scoped Ubuntu/Linux CI jobs only where the deployment contract requires real Linux validation.
 - Do not introduce Docker, Kubernetes, a Linux development workstation, or any other duplicate development environment unless explicitly authorized by the maintainer.
+
 ## Compiler warnings and errors
 
 Every changed source file must be free of compiler errors and analyzer warnings
@@ -45,8 +47,8 @@ before completion. Verify that the change introduces none in dependent files.
 
 ## Core Rules
 
-Read and follow [guides/ENGINEERING-INVARIANTS.md](guides/ENGINEERING-INVARIANTS.md) for all implementation, refactoring, debugging, code review, and AI-assisted development.
-Read and follow [guides/PERFORMANCE-REQUIREMENT.md](guides/PERFORMANCE-REQUIREMENT.md)
+Read and follow [guides/engineering-invariants.md](guides/engineering-invariants.md) for all implementation, refactoring, debugging, code review, and AI-assisted development.
+Read and follow [guides/performance-requirement.md](guides/performance-requirement.md)
 for dependency selection and performance-sensitive work. Performance is a primary
 design requirement alongside correctness and security.
 
@@ -85,7 +87,8 @@ No test-data deletion permission from another repository applies here. Do not
 modify remote VPS data, live Caddy state or an operator's AppSec engine without
 explicit authorization.
 
-## Running Test during debugging - Non negotiable
+## Running tests during debugging
+
 During a narrow debugging cycle, run focused tests. Once the fix is confirmed,
 run the full suite once before handoff; do not rerun it for every small attempt.
 
@@ -98,10 +101,12 @@ then make the smallest supported fix. Never change code based on a guessed cause
 Diagnostics must exclude request bodies, credentials and challenge secrets.
 
 When a bug is identified, continue autonomously through deterministic root-cause evidence, reproduction, the smallest supported fix, and verification. Do not stop after diagnosis, after reporting an intermediate status, or ask the maintainer to tell you to continue. Stop work on that bug only after the fix is confirmed. If a genuine external blocker prevents completion, provide its exact evidence and finish any independent work that remains possible.
+
 ## File size limit
 
 The 2,000-line source-file limit in Core Rules is authoritative. Split by clear
 responsibility; do not bypass it through compressed formatting or unrelated helpers.
+
 ## Task Ledger and Change Planning
 
 Every code change must have a task-ledger entry before implementation starts,
@@ -247,78 +252,11 @@ tools for exact source reading and edits after the relevant location is known.
 <!-- Go MCP :end -->
 ## Change-Safety Boundaries
 
-### Native Caddy behavior and request continuation
+Read and follow [guides/product-invariants.md](guides/product-invariants.md) for
+native Caddy behavior, AppSec policy/identity/secrets, and body/resource boundaries.
 
-- Preserve native CLI, configuration validation, admin API, TLS and content
-  handling. Do not introduce SSH management, another proxy hop, internal HTTP
-  re-entry, a configuration database or another management application dependency.
-- Protection is opt-in per virtual host/path. With both policies off, perform
-  no inspection calls, body capture, allow-cache lookup or challenge handling.
-- Continue directly to the original Caddy handler only after explicit native
-  allow. Preserve method, Host, URI/query, headers and complete-body semantics.
-- Preserve streaming and upgrades outside inspected scopes. Claim support for
-  file serving, reverse proxy, FastCGI, uploads or upgrades only after the
-  corresponding integration path has actually passed.
-- Shared transports, buffers and background work follow Caddy's lifecycle.
-  Reload and shutdown must release owned resources without leaking goroutines
-  or dropping active requests.
-
-### AppSec policy, identity and secrets
-
-- Keep WAF-only, Bot-only and combined policies independent. A valid bot cookie
-  must not bypass WAF; a bot exclusion must not disable a matching WAF policy.
-- Bind each scope to its reviewed native AppSec profile. Use Caddy's trusted
-  client identity. Public request headers must not select a weaker profile or
-  forge client identity. Preserve host/path and concurrent-request isolation.
-- Implement the complete native CrowdSec challenge protocol, including envelope
-  decoding, browser status/body/headers/CSP, repeated cookies, assets and
-  submission exchanges. Challenge HTTP 200 or 307 is not permission to invoke
-  the application handler. Errors and malformed responses are not native allow.
-- Specify and test timeout/failure behavior before stable release. Never add an
-  implicit allow fallback, unauthorized cached allow or retry of uncertain
-  side effects to improve availability or benchmark results.
-- Treat request/configuration/environment inputs as untrusted at their actual
-  boundaries. Keep engine/admin/provider credentials and challenge secrets out
-  of logs, errors, fixtures, screenshots, source control and release assets.
-  Do not weaken TLS verification or native trust and authorization checks.
-
-### Bodies, resources and dependencies
-
-- Read failures, interrupted bodies and invalid framing must not become
-  successfully inspected or replayed partial bodies. Never silently inspect or
-  forward a truncated prefix.
-- Derive limits from protocol requirements and measured resource needs. Define
-  and test oversize, compressed and streaming behavior. Prototype fixture sizes
-  are not product defaults. Do not claim WebSocket-frame or unbounded-stream
-  inspection without evidence.
-- Reuse bounded transports/connections; propagate deadlines and cancellation.
-  Bound attacker-triggered work and retained memory with documented rationale.
-  Caller timeout does not release resources still used by ongoing work.
-- The external AppSec engine is a dependency only when protection is enabled.
-  Do not bundle/manage that engine, firewall services or host packages. Do not
-  add unrelated listeners, databases, analytics pipelines or detection engines.
-
-### Distribution and release integrity
-
-- Commit exact reviewed dependency pins and checksums when the Go module is
-  created. No floating branches or `@latest` in release builds. Keep the
-  distribution version separate from upstream Caddy's version.
-- Preserve `caddy version`, `caddy build-info` and `caddy list-modules` diagnostics.
-  Record source commit, complete module set, toolchain, target and build flags.
-- Initial proposed targets are Windows/amd64 and Linux/amd64; each published
-  target requires native acceptance. Additional targets require explicit scope
-  and native verification. Cross-compilation alone is insufficient.
-- Accept and publish the exact same binary. Packages include required licenses,
-  notices and manifests, with SHA-256 checksums and provenance attestations.
-- Releases require maintainer-created version tags, successful acceptance and
-  performance gates, and verified draft-release completion before publication.
-  Missing evidence leaves the release unpublished. Do not move released tags or
-  overwrite published assets; corrections require a new distribution release.
-- Keep PR jobs read-only and release secrets away from untrusted code. Pin
-  third-party Actions to immutable revisions and grant publication/OIDC rights
-  only to jobs that need them. Do not publish without maintainer authorization.
-- Operators download versioned ready-to-run binaries without Go, `xcaddy` or a
-  checkout. Updates preserve the reviewed bundle; do not add a competing updater.
+Consult [guides/implementation-references.md](guides/implementation-references.md)
+when researching or implementing CrowdSec APIs, methods and remediation behavior.
 
 ## Testing and Verification
 
@@ -339,6 +277,32 @@ go test -v ./...
 go vet ./...
 go build ./cmd/caddy
 ```
+
+### Tests with local dependencies
+
+- Tests needing maintainer-local services, credentials, files, tunnels, DNS or
+  network topology must be opt-in through `TRUEOPS_APPSEC_TEST_LOCAL=1`.
+  The default is disabled. Every such test or suite must skip before opening
+  connections, starting local-service setup or changing external state unless
+  explicitly enabled. Do not put ungated side effects in `init` or `TestMain`.
+- GitHub workflows set `TRUEOPS_APPSEC_TEST_LOCAL=0`. Local-dependency tests must
+  also skip when `CI=true`, even if the opt-in flag was inherited as `1`.
+  Use `t.Skip` with a useful prerequisite message; report skipped acceptance
+  honestly. For example, before any local setup:
+
+  ```go
+  if os.Getenv("CI") == "true" || os.Getenv("TRUEOPS_APPSEC_TEST_LOCAL") != "1" {
+      t.Skip("requires explicit local-dependency opt-in outside CI")
+  }
+  ```
+
+- Keep unit tests and self-contained integration fixtures in `go test -v ./...`.
+  A fixture created and cleaned up by the test, including an isolated loopback
+  server, is not a maintainer-local dependency. Do not skip whole packages or
+  all integration tests merely because some tests need local infrastructure.
+- Local-service acceptance runs separately with documented prerequisites,
+  scoped authorization and existing diagnostic controls enabled. A skip does
+  not satisfy real AppSec/browser or performance acceptance.
 
 Run focused package tests first when changing a narrow area, then run the
 broader checks required by the risk of the change. Do not edit production code,
@@ -425,6 +389,13 @@ The final response should state only verified facts:
   numbers, or similar tracking identifiers.
 
 Never commit the change as part of the task unless the user explicitly asks.
+
+The tooling-managed Graft instructions below apply when a graph exists. Check
+its availability and freshness rather than assuming the directory is indexed.
+If the tool reports no graph, report that fact and read only relevant documents
+or source ranges. Do not generate scaffolding or change user-level tool
+configuration to manufacture graph context for a documentation-only task.
+
 <!-- graft:start -->
 ## Graft — repo context graph
 
