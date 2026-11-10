@@ -34,9 +34,12 @@ Functional behavior and performance acceptance remain defined by the
 ## Repository prerequisites
 
 - The tagged source must include the reviewed `go.mod`, `go.sum`,
-  `cmd/caddy/main.go`, root `LICENSE` and complete `THIRD_PARTY_NOTICES`.
-  The workflow reports a missing input as an error. It does not manufacture a
-  launcher, choose upstream versions or generate placeholder license notices.
+  `cmd/caddy/main.go`, root `LICENSE`, `THIRD_PARTY_NOTICES` and
+  `scripts/package-notices.ps1`. The workflow reports a missing input as an error.
+  Packaging copies actual upstream license/notice files for each target's
+  dependency inventory and the Go runtime into `licenses/`, and appends their
+  versions and paths to the archive's `THIRD_PARTY_NOTICES`. A missing dependency
+  license fails packaging. It does not generate placeholder license texts.
 - `go.mod` must select a reviewed exact Go patch version. Dependency versions
   and checksums must be committed. Setup reads the module's toolchain selection;
   automatic Go toolchain switching and dependency-file changes are disabled.

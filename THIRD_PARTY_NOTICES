@@ -1,0 +1,13 @@
+TrueOps AppSec third-party notices
+=================================
+
+TrueOps AppSec includes upstream Caddy, its standard modules, other pinned Go
+dependencies and the Go runtime. These components retain their respective
+copyrights, licenses and notices. The root LICENSE applies to TrueOps AppSec's
+own code and does not replace third-party license terms.
+
+Release archives include a licenses/ directory containing the upstream license
+and notice files copied from the exact dependency versions used for that target,
+plus the Go toolchain's LICENSE. The release packaging step appends a versioned
+dependency index below, with paths to those files. The build manifest records
+the toolchain, upstream Caddy version and module inventory.

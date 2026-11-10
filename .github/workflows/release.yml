@@ -40,9 +40,9 @@ jobs:
           if ($env:RELEASE_TAG -notmatch '^v[0-9A-Za-z][0-9A-Za-z.+_-]*$') {
             throw 'Use a v-prefixed tag without path separators or filename metacharacters.'
           }
-          foreach ($required in @('go.mod', 'go.sum', 'cmd/caddy/main.go', 'LICENSE', 'THIRD_PARTY_NOTICES')) {
+          foreach ($required in @('go.mod', 'go.sum', 'cmd/caddy/main.go', 'LICENSE', 'THIRD_PARTY_NOTICES', 'scripts/package-notices.ps1')) {
             if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
-              throw "Release input missing: $required. Implement and review the bundle before releasing."
+              throw "Release input missing from tagged source: $required."
             }
           }
           $moduleText = Get-Content -Raw go.mod
@@ -94,7 +94,7 @@ jobs:
             go build -trimpath -o "$candidate/caddy" ./cmd/caddy
             $binaryHash = (Get-FileHash -Algorithm SHA256 "$candidate/caddy").Hash.ToLowerInvariant()
             go version -m "$candidate/caddy" | Set-Content -Encoding utf8NoBOM "$candidate/build-info.txt"
-            Copy-Item -LiteralPath LICENSE, THIRD_PARTY_NOTICES -Destination $candidate
+            ./scripts/package-notices.ps1 -Destination $candidate
             [ordered]@{
               distribution = 'trueops-appsec'
               version = $env:RELEASE_TAG
@@ -177,7 +177,9 @@ jobs:
           printf '%s  caddy\n' "$binary_hash" | sha256sum --check --strict
           mkdir -p ../../release
           archive="trueops-appsec_${RELEASE_TAG}_linux_${TARGET_ARCH}.tar.gz"
-          tar -czf "../../release/$archive" caddy LICENSE THIRD_PARTY_NOTICES manifest.json build-info.txt
+          test -s THIRD_PARTY_NOTICES
+          test -s licenses/GO-LICENSE
+          tar -czf "../../release/$archive" caddy LICENSE THIRD_PARTY_NOTICES licenses manifest.json build-info.txt
           cp manifest.json "../../release/manifest-linux-${TARGET_ARCH}.json"
 
       - name: Upload native-checked release archive
