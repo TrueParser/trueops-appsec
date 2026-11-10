@@ -194,6 +194,12 @@ An external-proxy comparison may illustrate a removed hop but cannot be the only
 reference. Compare equivalent protection work. Synthetic inspection must not be
 advertised as real WAF/Bot Detection capacity.
 
+The [VPS benchmark bundle](../benchmarks/README.md) includes the required external
+bridge comparison against the same in-process enforcement and native profiles.
+Build on Windows, use WSL only to host immutable downloads, and measure on the
+isolated VPS. Preserve existing services/sites/firewall/tunnels and release the
+same accepted binary bytes; a rebuild does not inherit the measurements.
+
 Cover application GETs, small/large POSTs, representative uploads and static
 files; concurrency 1 and representative concurrent load; HTTP/1.1, HTTP/2,
 relevant TLS and supported streaming/upgrades. Claim handler support only after

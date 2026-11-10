@@ -5,7 +5,7 @@
 *.dll
 *.so
 *.dylib
-
+/out/*
 # Database files — never commit live data
 *.db
 *.db-shm

@@ -266,7 +266,25 @@ created to work around that.
 
 ## 3. Correctness and performance verification
 
-- [ ] Boundary: Module tests, `tests/integration/` and `benchmarks/`.
+- [ ] Boundary: Module tests, `benchmarks/` and
+  `cmd/artifact-server/`; Windows builds, WSL download hosting and isolated VPS
+  execution only. Preserve installed Caddy, existing sites, Controller and tunnels.
+- [ ] Package stock Caddy, stock with an external AppSec bridge, bundled absent/
+  disabled and in-process candidates using identical upstream/toolchain pins and
+  comparable flags. Record source revisions, complete modules and SHA-256 hashes;
+  include isolated configurations, runner, required licenses and notices.
+- [ ] Prepare an isolated Ubuntu 24.04 amd64 CrowdSec test engine with private
+  LAPI/database/credentials and WAF-only, Bot-only and combined pinned profiles.
+  Provide shell setup commands; never install/replace services or alter existing
+  CrowdSec, Caddy, sites or firewall configuration. Build on Windows and use WSL
+  only as the download host; VPS access is maintainer-run commands, never SSH.
+- [ ] Serve the immutable bundle from a temporary WSL directory using a
+  Windows-built Linux artifact server, with a verified HTTPS tunnel to that server.
+  Do not install Go/build in WSL or reuse/reconfigure the Controller tunnel.
+  Provide a working `curl`/`sha256sum`/`tar` command; no SSH/SCP or VPS Python.
+- [ ] Execute only benchmark-owned processes/files in a dedicated temporary VPS
+  directory and unused loopback ports, with isolated configuration/storage/admin.
+  Stop and clean up only those owned resources; expose no benchmark listener publicly.
 - [ ] Verify all four policy combinations and cross-site/firewall isolation;
   prove allow invokes the original handler and deny/challenge/error does not.
   Cover native CRS attacks, API schema violations and rate-limit 429/isolation.
@@ -281,6 +299,13 @@ created to work around that.
 - [ ] Compare matching upstream Caddy, inactive bundle, configured disabled
   middleware, labelled synthetic overhead and real WAF/Bot/combined/challenge
   paths using the performance guide's workloads and reproducible inputs.
+- [ ] Compare external and in-process protection with the same real engine,
+  profiles, inspected bodies and decisions. Verify body/challenge correctness
+  before timing GET, POST, uploads, static files, exclusions and verified cookies.
+- [ ] Use warmup, repeated runs and balanced execution order. Prefer a separate
+  authorized load generator; disclose shared-VPS generation. Return machine-readable
+  throughput, p50/p95/p99, errors, CPU/memory and exact hardware/software/configuration,
+  with a concise comparison and actual unsupported/failed paths.
 - [ ] Verify zero added heap allocations/bytes on the disabled path. Measure
   throughput, errors, CPU, p50/p95/p99, allocations and retained memory, including
   concurrent upload/hostile pressure and recovery; establish measured budgets.
@@ -290,6 +315,9 @@ created to work around that.
 - [ ] Evidence: Identify exercised engine/browser/target paths and exact binary
   checksums; retain raw logs/measurements outside this ledger. Investigate failures
   from telemetry and rerun the affected checks after the smallest supported fix.
+- [ ] Accept, benchmark and release the exact same executable bytes. Preserve
+  measured binaries; never substitute a rebuild. Synthetic results do not complete
+  real CrowdSec/browser acceptance; unavailable native targets remain pending.
 - [ ] Completion: Required correctness, isolation, real-integration and measured
   performance acceptance passes; unavailable checks remain pending, never passed.
 - [ ] Slice complete.
