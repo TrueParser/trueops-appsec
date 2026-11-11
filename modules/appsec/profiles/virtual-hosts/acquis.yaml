@@ -1,0 +1,67 @@
+# ONE shared CrowdSec v1.8.2 process, six policy/trust-domain datasources.
+# Challenge configs are PRIVATE, operator-created; use a separate random secret
+# for A and B, retained across restart and shared within that site's Bot/combined.
+# Configure LAPI profiles with ../no-firewall-decisions.yaml and private auth.
+source: appsec
+name: site-a-waf
+listen_addr: 127.0.0.1:7422
+path: /
+body_read_timeout: "0s"
+appsec_configs: [trueops/site-a-waf, trueops/site-rule-exceptions]
+labels: {type: appsec, site: site-a}
+---
+source: appsec
+name: site-a-combined
+listen_addr: 127.0.0.1:7423
+path: /
+body_read_timeout: "0s"
+appsec_configs:
+  - trueops/site-a-waf
+  - trueops/site-rule-exceptions
+  - crowdsecurity/appsec-bot-challenge-scoring
+  - crowdsecurity/appsec-bot-challenge-scoring-balanced
+  - operator/site-a-challenge
+labels: {type: appsec, site: site-a}
+---
+source: appsec
+name: site-a-bot
+listen_addr: 127.0.0.1:7424
+path: /
+body_read_timeout: "0s"
+appsec_configs:
+  - crowdsecurity/appsec-bot-challenge-scoring
+  - crowdsecurity/appsec-bot-challenge-scoring-balanced
+  - operator/site-a-challenge
+labels: {type: appsec, site: site-a}
+---
+source: appsec
+name: site-b-waf
+listen_addr: 127.0.0.1:7425
+path: /
+body_read_timeout: "0s"
+appsec_configs: [trueops/site-b-waf, trueops/site-rule-exceptions]
+labels: {type: appsec, site: site-b}
+---
+source: appsec
+name: site-b-combined
+listen_addr: 127.0.0.1:7426
+path: /
+body_read_timeout: "0s"
+appsec_configs:
+  - trueops/site-b-waf
+  - trueops/site-rule-exceptions
+  - crowdsecurity/appsec-bot-challenge-scoring
+  - crowdsecurity/appsec-bot-challenge-scoring-balanced
+  - operator/site-b-challenge
+labels: {type: appsec, site: site-b}
+---
+source: appsec
+name: site-b-bot
+listen_addr: 127.0.0.1:7427
+path: /
+body_read_timeout: "0s"
+appsec_configs:
+  - crowdsecurity/appsec-bot-challenge-scoring
+  - crowdsecurity/appsec-bot-challenge-scoring-balanced
+  - operator/site-b-challenge
+labels: {type: appsec, site: site-b}

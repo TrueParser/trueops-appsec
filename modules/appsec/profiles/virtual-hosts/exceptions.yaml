@@ -1,0 +1,13 @@
+# Applied BEFORE evaluation, in-band only, on both WAF and combined datasources.
+# Request.Host and URL are reconstructed from metadata owned by the Caddy module.
+# Explicit host checks also isolate hosts sharing a policy datasource.
+name: trueops/site-rule-exceptions
+inband:
+  pre_eval:
+    - filter: req.Host matches '(?i)^site-a[.]test(:[0-9]+)?$' && req.URL.Path == '/legacy/.env'
+      apply:
+        - RemoveInBandRuleByName("crowdsecurity/vpatch-env-access")
+    # Both .env and WordPress-PHP match this URI. Removing .env must STILL block.
+    - filter: req.Host matches '(?i)^site-a[.]test(:[0-9]+)?$' && req.URL.Path == '/wp-content/uploads/test.php/.env'
+      apply:
+        - RemoveInBandRuleByName("crowdsecurity/vpatch-env-access")

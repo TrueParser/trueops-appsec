@@ -257,6 +257,8 @@ native Caddy behavior, AppSec policy/identity/secrets, and body/resource boundar
 
 Consult [guides/implementation-references.md](guides/implementation-references.md)
 when researching or implementing CrowdSec APIs, methods and remediation behavior.
+For per-host rule selection and exceptions, follow the native configuration
+contract in [guides/virtual-host-waf-policies.md](guides/virtual-host-waf-policies.md).
 
 ## Testing and Verification
 

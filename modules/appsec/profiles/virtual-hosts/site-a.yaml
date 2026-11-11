@@ -1,0 +1,12 @@
+# Operator-owned EXAMPLE: rename this policy for your deployment.
+# Select both catalog groups. Install ONLY matching assets from ../pins.json.
+name: trueops/site-a-waf
+default_remediation: ban
+on_load:
+  - apply:
+      - SetMaxBodySize(10485760)
+      - SetBodySizeExceededAction("drop")
+inband_rules:
+  - crowdsecurity/base-config
+  - crowdsecurity/vpatch-*
+  - crowdsecurity/generic-*

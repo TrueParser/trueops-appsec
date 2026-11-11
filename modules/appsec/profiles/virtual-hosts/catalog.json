@@ -1,0 +1,11 @@
+{
+  "version": "trueops-hub-04bf592e846e-v1",
+  "pins": "../pins.json",
+  "engine": "v1.8.2",
+  "hub_commit": "04bf592e846e05bda8851d7665141fb69e6e08d3",
+  "required": ["crowdsecurity/base-config"],
+  "groups": {
+    "virtual-patching": "crowdsecurity/vpatch-*",
+    "generic-attack": "crowdsecurity/generic-*"
+  }
+}

@@ -1,0 +1,13 @@
+# Operator-owned EXAMPLE: rename this policy for your deployment.
+# Group selection plus one individually selected virtual patch; .env is absent.
+# Do NOT also load appsec-default: configurations merge their rule selections.
+name: trueops/site-b-waf
+default_remediation: ban
+on_load:
+  - apply:
+      - SetMaxBodySize(10485760)
+      - SetBodySizeExceededAction("drop")
+inband_rules:
+  - crowdsecurity/base-config
+  - crowdsecurity/generic-*
+  - crowdsecurity/vpatch-git-config

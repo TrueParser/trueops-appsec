@@ -33,6 +33,13 @@ Content stays in Caddy's handler chain. The integration avoids an additional
 content proxy or an internal HTTP round trip. Unprotected hosts and paths keep
 the ordinary Caddy request path without inspection calls or body capture.
 
+## Per-host WAF rules
+
+Select pinned virtual-patching and generic-attack groups or individual rules
+with native CrowdSec profiles. Rule-specific host/path exceptions remove only
+the intended rules before evaluation; other enabled rules still protect the
+request. See the [configuration contract and examples](guides/virtual-host-waf-policies.md).
+
 ## Performance with security intact
 
 The design prioritizes minimal request-path work, connection reuse, bounded
