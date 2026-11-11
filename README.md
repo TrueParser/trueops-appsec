@@ -41,8 +41,33 @@ Detection remain independent: passing a bot challenge does not bypass WAF.
 
 Performance is evaluated against upstream Caddy and real protection workloads,
 including throughput, latency, CPU, allocations and memory recovery after bursts.
-Inspection failures and malformed responses must never be treated as permission
-to serve a protected request.
+Engine failures deny requests by default. Operators can explicitly select a
+scoped failure passthrough; this is not a successful inspection or native allow.
+Malformed responses and native denials remain terminal.
+
+## AppSec failure policy
+
+Set `failure_action` inside a `trueops_appsec` Caddyfile block or as the same
+field in its JSON handler configuration:
+
+```caddyfile
+failure_action deny
+```
+
+`deny` is the default, including when omitted, and returns HTTP 503 for engine
+transport failures or unexpected statuses (including 401 and 500).
+Explicit `failure_action passthrough` continues directly to the original handler
+with the complete captured request when those failures occur. This is the scoped
+equivalent of CrowdSec's
+[`APPSEC_FAILURE_ACTION`](https://docs.crowdsec.net/u/bouncers/nginx/#appsec_failure_action).
+It trades inspection availability for application availability and must be an
+operator's deliberate per-route choice. No global environment override is read.
+
+Native denials, CAPTCHA/challenge responses, malformed or oversized envelopes,
+incomplete request bodies, cancellation, missing trusted identity and local
+resource limits cannot be bypassed by this setting. Internal challenge paths
+never continue to the origin. Debug diagnostics distinguish failure passthrough
+from native allow; nothing is cached and no inspection is retried.
 
 ## One binary, a reviewed module set
 

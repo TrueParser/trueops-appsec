@@ -13,11 +13,13 @@ import (
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 )
 
-func (h *Handler) inspect(r *http.Request, body []byte) (envelope, int) {
+// engineFailure is true only for transport errors or non-decision HTTP statuses.
+// Local trust failures and invalid/incomplete decision envelopes remain terminal.
+func (h *Handler) inspect(r *http.Request, body []byte) (decision envelope, status int, engineFailure bool) {
 	var empty envelope
 	ip, ok := caddyhttp.GetVar(r.Context(), caddyhttp.ClientIPVarKey).(string)
 	if _, err := netip.ParseAddr(ip); !ok || err != nil {
-		return empty, http.StatusServiceUnavailable
+		return empty, http.StatusServiceUnavailable, false
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(h.Timeout))
 	defer cancel()
@@ -69,7 +71,7 @@ func (h *Handler) inspect(r *http.Request, body []byte) (envelope, int) {
 	}()
 	resp, err := h.runtime.client.Do(req)
 	if err != nil {
-		return empty, http.StatusServiceUnavailable
+		return empty, http.StatusServiceUnavailable, true
 	}
 	defer resp.Body.Close()
 	failure := http.StatusServiceUnavailable
@@ -77,36 +79,36 @@ func (h *Handler) inspect(r *http.Request, body []byte) (envelope, int) {
 		failure = http.StatusForbidden
 	}
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusForbidden {
-		return empty, failure
+		return empty, failure, true
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, h.MaxResponseBytes+1))
 	if err != nil || int64(len(data)) > h.MaxResponseBytes {
-		return empty, failure
+		return empty, failure, false
 	}
-	decision, err := decodeEnvelope(data)
+	decision, err = decodeEnvelope(data)
 	if err != nil {
-		return empty, failure
+		return empty, failure, false
 	}
 	if resp.StatusCode == http.StatusOK {
 		if decision.Action != "allow" {
-			return empty, failure
+			return empty, failure, false
 		}
 		select {
 		case err := <-written:
 			if err != nil {
-				return empty, failure
+				return empty, failure, false
 			}
 		case <-ctx.Done():
-			return empty, failure
+			return empty, failure, false
 		}
 		if ctx.Err() != nil {
-			return empty, failure
+			return empty, failure, false
 		}
 	} else if decision.Action == "allow" {
 		// A blocked transport response cannot authorize the application.
-		return empty, failure
+		return empty, failure, false
 	}
-	return decision, 0
+	return decision, 0, false
 }
 
 var hopHeaders = [...]string{

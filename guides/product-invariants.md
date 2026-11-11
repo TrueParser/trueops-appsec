@@ -24,8 +24,10 @@ belong to the separate [build/release invariants](releasing.md#build-and-release
   re-entry, a configuration database or another management application dependency.
 - Protection is opt-in per virtual host/path. With both policies off, perform
   no inspection calls, body capture, allow-cache lookup or challenge handling.
-- For protected requests, continue directly to the original Caddy handler only
-  after explicit native allow. Preserve method, Host, URI/query, headers and
+- For protected requests, continue directly to the original Caddy handler after
+  explicit native allow or the operator's explicit scoped
+  `failure_action passthrough` for engine transport/unexpected-status failures.
+  Preserve method, Host, URI/query, headers and
   complete-body semantics. Unprotected scopes retain the ordinary Caddy path.
 - Preserve streaming and upgrades outside inspected scopes. Claim support for
   file serving, reverse proxy, FastCGI, uploads or upgrades only after the
@@ -53,6 +55,12 @@ belong to the separate [build/release invariants](releasing.md#build-and-release
 - Specify and test timeout/failure behavior before stable release. Never add an
   implicit allow fallback, unauthorized cached allow or retry of uncertain
   side effects to improve availability or benchmark results.
+- Default `failure_action` to `deny` (HTTP 503). Explicit `passthrough` is a
+  separate operator policy, never a native allow or successful inspection.
+  It cannot bypass native denials, malformed/incomplete decision envelopes,
+  challenge routes, body/framing failures, cancellation, trusted identity or
+  resource limits. Preserve TLS verification even when its failure is covered
+  by the explicitly configured passthrough policy.
 - Treat request/configuration/environment inputs as untrusted at their actual
   boundaries. Keep engine/admin/provider credentials and challenge secrets out
   of logs, errors, fixtures, screenshots, source control and release assets.

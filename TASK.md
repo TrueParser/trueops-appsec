@@ -104,7 +104,8 @@ and the reference's [registration/lifecycle](https://github.com/hslatman/caddy-c
   and owned `X-Crowdsec-Appsec-{Ip,Uri,Host,Verb,Api-Key,User-Agent,Http-Version}`
   metadata. Preserve browser cookies. Do not forward our engine credential to
   the application or log credentials, bodies or challenge secrets.
-- Continue only on transport HTTP 200 with a valid explicit `action: allow`.
+- Continue on transport HTTP 200 with a valid explicit `action: allow`, or an
+  explicitly configured scoped `failure_action passthrough` for engine failures.
   HTTP 403 is remediation, even when its browser status is 200 or 307.
   Decode the bounded envelope once; do not follow engine redirects. Ban returns
   a terminal denial, preserving a valid native denial status such as rate-limit
@@ -115,9 +116,10 @@ and the reference's [registration/lifecycle](https://github.com/hslatman/caddy-c
   challenge-status default is 200. Handle assets, POST submissions and opaque
   success cookies; only the engine validates/mints them. Missing or invalid
   challenge payload fails closed to plain 403 without exposing its envelope.
-- Timeout, connection/authentication/TLS errors, unexpected status and malformed
-  allow responses terminate with 503; malformed/empty 403 responses terminate
-  with 403. Neither invokes `next`. No fail-open switch, allow cache or
+- Timeout, connection/authentication/TLS errors and unexpected status default
+  to 503; explicit `failure_action passthrough` may invoke `next` with the intact
+  captured request. Malformed allow responses remain 503, and malformed/empty
+  403 responses remain 403. Challenge paths never pass through. No allow cache or
   application-level retry; submissions must not be replayed after uncertain I/O.
   Propagate cancellation and return before continuation if the caller is canceled.
 
@@ -263,6 +265,15 @@ created to work around that.
 - [x] Completion: The configured module performs native inspection/remediation
   and direct continuation under the audited contract, with required checks green.
 - [x] Slice complete.
+
+### Configurable AppSec failure action
+
+- [x] Add scoped Caddyfile/JSON `failure_action` (`deny` by default or explicit
+  `passthrough`) in `modules/appsec/`, following CrowdSec's failure contract.
+- [x] Test engine failures and body-preserving continuation; retain terminal
+  denials, malformed responses, challenge routes, cancellation and local limits.
+- [x] Document the explicit failure-policy exception in operator guidance and
+  relevant product/proposal contracts; verify formatting, tests, vet and build.
 
 ## 3. Correctness and performance verification
 

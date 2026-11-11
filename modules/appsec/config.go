@@ -22,6 +22,9 @@ func (h *Handler) Validate() error {
 	if !h.WAF && !h.Bot {
 		return nil
 	}
+	if h.FailureAction != "" && h.FailureAction != "deny" && h.FailureAction != "passthrough" {
+		return errors.New("appsec: failure_action must be deny or passthrough")
+	}
 	u, err := url.Parse(h.Endpoint)
 	if err != nil || u == nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.User != nil || u.Fragment != "" {
 		return errors.New("appsec: endpoint must be an HTTP(S) URL without userinfo or fragment")
@@ -107,6 +110,8 @@ func (h *Handler) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 				h.APIKey = value
 			case "ca_file":
 				h.CAFile = value
+			case "failure_action":
+				h.FailureAction = value
 			case "timeout":
 				var duration time.Duration
 				duration, err = caddy.ParseDuration(value)

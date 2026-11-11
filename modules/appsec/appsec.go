@@ -35,6 +35,7 @@ type Handler struct {
 	MaxResponseBytes int64          `json:"max_response_bytes,omitempty"`
 	MaxInFlight      int            `json:"max_in_flight,omitempty"`
 	CAFile           string         `json:"ca_file,omitempty"`
+	FailureAction    string         `json:"failure_action,omitempty"`
 
 	runtime *runtime
 }
@@ -86,7 +87,7 @@ func (h *Handler) Cleanup() error {
 	return nil
 }
 
-// ServeHTTP continues directly to next only after a complete native allow.
+// ServeHTTP continues after native allow or an explicitly configured failure passthrough.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyhttp.Handler) error {
 	// Keep this first: no context, logging, body, challenge or runtime work off.
 	if !h.WAF && !h.Bot {
@@ -119,20 +120,24 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyht
 	if status != 0 {
 		return h.reject(w, r, status, "request_body")
 	}
-	decision, status := h.inspect(r, body)
-	if status != 0 {
-		return h.reject(w, r, status, "engine_failure")
-	}
+	decision, status, engineFailure := h.inspect(r, body)
 	if r.Context().Err() != nil {
 		return h.reject(w, r, http.StatusServiceUnavailable, "canceled")
 	}
-	if decision.Action != "allow" {
-		return h.remediate(w, r, decision)
+	if status != 0 {
+		if !engineFailure || h.FailureAction != "passthrough" || isChallengePath(r.URL.Path) {
+			return h.reject(w, r, status, "engine_failure")
+		}
+		h.trace("engine_failure_passthrough", status)
+	} else {
+		if decision.Action != "allow" {
+			return h.remediate(w, r, decision)
+		}
+		if isChallengePath(r.URL.Path) {
+			return h.reject(w, r, http.StatusNotFound, "unknown_challenge_path")
+		}
+		h.trace("allow", 0)
 	}
-	if isChallengePath(r.URL.Path) {
-		return h.reject(w, r, http.StatusNotFound, "unknown_challenge_path")
-	}
-	h.trace("allow", 0)
 	if len(body) == 0 {
 		// Body-free streams/downloads need no capture reservation downstream.
 		<-rt.slots
