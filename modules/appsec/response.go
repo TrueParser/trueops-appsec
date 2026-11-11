@@ -121,6 +121,9 @@ func decodeHeaders(d *json.Decoder) (http.Header, error) {
 func isChallengePath(path string) bool { return strings.HasPrefix(path, challengePrefix) }
 
 func (h *Handler) remediate(w http.ResponseWriter, r *http.Request, e envelope) error {
+	if e.Action == "captcha" {
+		return h.renderCaptcha(w, r, e.HTTPStatus)
+	}
 	if e.Action != "challenge" {
 		status := http.StatusForbidden
 		if e.Action == "ban" && e.HTTPStatus >= 400 && e.HTTPStatus <= 599 {

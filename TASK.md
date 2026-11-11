@@ -109,8 +109,10 @@ and the reference's [registration/lifecycle](https://github.com/hslatman/caddy-c
   HTTP 403 is remediation, even when its browser status is 200 or 307.
   Decode the bounded envelope once; do not follow engine redirects. Ban returns
   a terminal denial, preserving a valid native denial status such as rate-limit
-  429. Unknown/captcha remediations without a configured supported renderer
-  fail closed to 403; never invent a successful CAPTCHA or bot-cookie bypass.
+  429. Provider-backed CAPTCHA requires explicit configuration, server-side proof
+  verification and host/profile/identity-bound signed grants. Continue inspecting
+  every request; grants only satisfy `captcha`, never native bans or Bot challenges.
+  Unknown/unconfigured remediations fail closed to 403.
 - Relay native challenge body, replacement headers/CSP and separate Set-Cookie
   fields. Honour browser status, including 307; the specified absent/zero
   challenge-status default is 200. Handle assets, POST submissions and opaque
@@ -274,6 +276,17 @@ created to work around that.
   denials, malformed responses, challenge routes, cancellation and local limits.
 - [x] Document the explicit failure-policy exception in operator guidance and
   relevant product/proposal contracts; verify formatting, tests, vet and build.
+
+### CAPTCHA remediation
+
+- [x] Add scoped, opt-in Turnstile, hCaptcha and reCAPTCHA v2 rendering and
+  server-side verification in `modules/appsec/`, with Caddyfile/JSON settings.
+- [x] Bind signed CAPTCHA tickets/grants to trusted client identity, host and
+  AppSec profile; continue inspecting every request and never bypass ban or
+  native Bot challenges. Keep submissions terminal and provider errors closed.
+- [x] Cover complete exchanges, invalid proofs, expiry, isolation, body/resource
+  limits and failure paths with isolated fixtures; document configuration and
+  verify formatting, repository tests, vet and Windows build.
 
 ## 3. Correctness and performance verification
 

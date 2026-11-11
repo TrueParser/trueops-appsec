@@ -43,7 +43,52 @@ Performance is evaluated against upstream Caddy and real protection workloads,
 including throughput, latency, CPU, allocations and memory recovery after bursts.
 Engine failures deny requests by default. Operators can explicitly select a
 scoped failure passthrough; this is not a successful inspection or native allow.
-Malformed responses and native denials remain terminal.
+Malformed responses and native bans remain terminal.
+
+## CAPTCHA remediation
+
+Classic `action: captcha` can use **Turnstile**, **hCaptcha** or **reCAPTCHA v2**.
+Enable it inside the `trueops_appsec` block with your provider's keys:
+
+```caddyfile
+captcha_provider turnstile
+captcha_site_key {$CAPTCHA_SITE_KEY}
+captcha_secret_key {$CAPTCHA_SECRET_KEY}
+captcha_cookie_secret {$CAPTCHA_COOKIE_SECRET}
+captcha_ttl 1h
+captcha_path /trueops-internal/captcha/submit
+```
+
+In JSON, these are the `provider`, `site_key`, `secret_key`, `cookie_secret`,
+`ttl` and `path` fields of the handler's `captcha` object. Other provider names
+are `hcaptcha` and `recaptcha`. The signing secret must contain at least 32
+cryptographically random bytes; keep it stable across reloads and separate for
+different trust domains. Rotating it invalidates existing CAPTCHA grants.
+
+The module renders the provider widget, verifies its proof server-side and issues
+an expiring, signed, host-only cookie bound to trusted client IP, host, AppSec
+endpoint and credentials. Every later request is still inspected by CrowdSec:
+a valid grant satisfies only `captcha`, and never overrides `ban`, native Bot
+`challenge`, malformed responses or engine failure policy. Native Bot Detection
+uses its own engine-issued cookies and is unchanged.
+
+`captcha_ttl` defaults to one hour; `captcha_path` defaults to the path above.
+Route that endpoint through the same handler as the protected requests. For
+several profiles on one host, use distinct callback paths inside their protected
+routes. Provider scripts and verification endpoints require outbound HTTPS.
+Do not append a conflicting site-wide CSP to CAPTCHA responses.
+
+Successful submissions return a **303** to the original local URL. Original
+POST/upload requests are never replayed automatically; retry them after solving.
+The callback never reaches the application. Missing configuration, invalid or
+expired proofs and provider failures deny access, including when
+`failure_action passthrough` is enabled. No provider credentials, user bodies
+or proof tokens are logged. Without a `captcha` configuration, remediation
+remains a plain 403.
+
+Provider contracts: [Turnstile](https://developers.cloudflare.com/turnstile/get-started/server-side-validation/),
+[hCaptcha](https://docs.hcaptcha.com/#server),
+[reCAPTCHA](https://developers.google.com/recaptcha/docs/verify).
 
 ## AppSec failure policy
 

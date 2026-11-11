@@ -36,6 +36,7 @@ type Handler struct {
 	MaxInFlight      int            `json:"max_in_flight,omitempty"`
 	CAFile           string         `json:"ca_file,omitempty"`
 	FailureAction    string         `json:"failure_action,omitempty"`
+	Captcha          *CaptchaConfig `json:"captcha,omitempty"`
 
 	runtime *runtime
 }
@@ -46,6 +47,7 @@ type runtime struct {
 	slots    chan struct{}
 	logger   *zap.Logger
 	retired  atomic.Bool
+	captcha  *captchaRuntime
 }
 
 // CaddyModule registers a distinct module ID alongside other AppSec plugins.
@@ -75,6 +77,9 @@ func (h *Handler) Provision(ctx caddy.Context) error {
 		slots:    make(chan struct{}, h.MaxInFlight),
 		logger:   ctx.Logger(),
 	}
+	if h.Captcha != nil {
+		h.runtime.captcha = h.prepareCaptcha()
+	}
 	return nil
 }
 
@@ -83,6 +88,9 @@ func (h *Handler) Cleanup() error {
 	if h.runtime != nil {
 		h.runtime.retired.Store(true)
 		h.runtime.client.CloseIdleConnections()
+		if h.runtime.captcha != nil {
+			h.runtime.captcha.client.CloseIdleConnections()
+		}
 	}
 	return nil
 }
@@ -111,6 +119,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyht
 		// final use must also close idle connections created after retirement.
 		if rt.retired.Load() {
 			rt.client.CloseIdleConnections()
+			if rt.captcha != nil {
+				rt.captcha.client.CloseIdleConnections()
+			}
 		}
 	}()
 	if r.Context().Err() != nil {
@@ -125,18 +136,24 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyht
 		return h.reject(w, r, http.StatusServiceUnavailable, "canceled")
 	}
 	if status != 0 {
-		if !engineFailure || h.FailureAction != "passthrough" || isChallengePath(r.URL.Path) {
+		if !engineFailure || h.FailureAction != "passthrough" || h.isRemediationPath(r.URL.Path) {
 			return h.reject(w, r, status, "engine_failure")
 		}
 		h.trace("engine_failure_passthrough", status)
 	} else {
-		if decision.Action != "allow" {
-			return h.remediate(w, r, decision)
+		if h.isCaptchaPath(r.URL.Path) && (decision.Action == "allow" || decision.Action == "captcha") {
+			return h.submitCaptcha(w, r, body)
 		}
-		if isChallengePath(r.URL.Path) {
+		if decision.Action == "captcha" && !h.isRemediationPath(r.URL.Path) && h.validCaptchaGrant(r) {
+			h.trace("captcha_grant", 0)
+		} else if decision.Action != "allow" {
+			return h.remediate(w, r, decision)
+		} else {
+			h.trace("allow", 0)
+		}
+		if h.isRemediationPath(r.URL.Path) {
 			return h.reject(w, r, http.StatusNotFound, "unknown_challenge_path")
 		}
-		h.trace("allow", 0)
 	}
 	if len(body) == 0 {
 		// Body-free streams/downloads need no capture reservation downstream.

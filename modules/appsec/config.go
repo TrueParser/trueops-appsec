@@ -25,6 +25,11 @@ func (h *Handler) Validate() error {
 	if h.FailureAction != "" && h.FailureAction != "deny" && h.FailureAction != "passthrough" {
 		return errors.New("appsec: failure_action must be deny or passthrough")
 	}
+	if h.Captcha != nil {
+		if err := h.Captcha.validate(); err != nil {
+			return err
+		}
+	}
 	u, err := url.Parse(h.Endpoint)
 	if err != nil || u == nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.User != nil || u.Fragment != "" {
 		return errors.New("appsec: endpoint must be an HTTP(S) URL without userinfo or fragment")
@@ -47,17 +52,8 @@ func (h *Handler) Validate() error {
 }
 
 func (h *Handler) newClient(systemRoots func() (*x509.CertPool, error)) (*http.Client, error) {
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	// The configured endpoint is the trust boundary; do not route its credential
-	// through an implicitly selected environment proxy or follow redirects.
-	transport.Proxy = nil
-	transport.DisableCompression = true
-	transport.MaxIdleConns = h.MaxInFlight
-	transport.MaxIdleConnsPerHost = h.MaxInFlight
-	transport.MaxConnsPerHost = h.MaxInFlight
-	transport.DialContext = (&net.Dialer{Timeout: time.Duration(h.Timeout), KeepAlive: 30 * time.Second}).DialContext
-	transport.TLSHandshakeTimeout = time.Duration(h.Timeout)
-	transport.ResponseHeaderTimeout = time.Duration(h.Timeout)
+	client := h.baseClient()
+	transport := client.Transport.(*http.Transport)
 	if h.CAFile != "" {
 		pem, err := os.ReadFile(h.CAFile)
 		if err != nil {
@@ -72,11 +68,27 @@ func (h *Handler) newClient(systemRoots func() (*x509.CertPool, error)) (*http.C
 		}
 		transport.TLSClientConfig = &tls.Config{RootCAs: roots}
 	}
+	return client, nil
+}
+
+// baseClient keeps public provider trust separate from an AppSec private CA.
+func (h *Handler) baseClient() *http.Client {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	// The configured endpoint is the trust boundary; do not route its credential
+	// through an implicitly selected environment proxy or follow redirects.
+	transport.Proxy = nil
+	transport.DisableCompression = true
+	transport.MaxIdleConns = h.MaxInFlight
+	transport.MaxIdleConnsPerHost = h.MaxInFlight
+	transport.MaxConnsPerHost = h.MaxInFlight
+	transport.DialContext = (&net.Dialer{Timeout: time.Duration(h.Timeout), KeepAlive: 30 * time.Second}).DialContext
+	transport.TLSHandshakeTimeout = time.Duration(h.Timeout)
+	transport.ResponseHeaderTimeout = time.Duration(h.Timeout)
 	return &http.Client{
 		Transport:     transport,
 		Timeout:       time.Duration(h.Timeout),
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-	}, nil
+	}
 }
 
 // UnmarshalCaddyfile accepts one value per named subdirective, inside route.
@@ -112,6 +124,11 @@ func (h *Handler) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 				h.CAFile = value
 			case "failure_action":
 				h.FailureAction = value
+			case "captcha_provider", "captcha_site_key", "captcha_secret_key", "captcha_cookie_secret", "captcha_ttl", "captcha_path":
+				if h.Captcha == nil {
+					h.Captcha = &CaptchaConfig{}
+				}
+				err = h.Captcha.set(key, value)
 			case "timeout":
 				var duration time.Duration
 				duration, err = caddy.ParseDuration(value)

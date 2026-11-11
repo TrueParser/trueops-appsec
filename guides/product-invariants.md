@@ -26,7 +26,8 @@ belong to the separate [build/release invariants](releasing.md#build-and-release
   no inspection calls, body capture, allow-cache lookup or challenge handling.
 - For protected requests, continue directly to the original Caddy handler after
   explicit native allow or the operator's explicit scoped
-  `failure_action passthrough` for engine transport/unexpected-status failures.
+  `failure_action passthrough` for engine transport/unexpected-status failures,
+  or a valid scoped CAPTCHA grant satisfying an engine `captcha` remediation.
   Preserve method, Host, URI/query, headers and
   complete-body semantics. Unprotected scopes retain the ordinary Caddy path.
 - Preserve streaming and upgrades outside inspected scopes. Claim support for
@@ -48,6 +49,13 @@ belong to the separate [build/release invariants](releasing.md#build-and-release
 - Bind each scope to its reviewed native AppSec profile. Use Caddy's trusted
   client identity. Public request headers must not select a weaker profile or
   forge client identity. Preserve host/path and concurrent-request isolation.
+- Classic CAPTCHA is opt-in and provider-verified. Bind signed tickets/grants to
+  trusted client identity, host, profile and credentials. A CAPTCHA grant only
+  satisfies `captcha`; inspect every request and retain native bans and Bot
+  challenges. CAPTCHA callbacks are terminal, expire, verify same-origin tickets,
+  respect body/concurrency/response budgets and fail closed on provider errors.
+  Keep provider trust separate from private AppSec CAs. Never automatically replay
+  an original POST/upload after verification.
 - Implement the complete native CrowdSec challenge protocol, including envelope
   decoding, browser status/body/headers/CSP, repeated cookies, assets and
   submission exchanges. Challenge HTTP 200 or 307 is not permission to invoke
