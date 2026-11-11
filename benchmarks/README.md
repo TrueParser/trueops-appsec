@@ -9,8 +9,10 @@ the Ubuntu 24.04 amd64 VPS. Do not run engine installers or systemctl commands.
 
 After downloading and verifying the archive's SHA-256, extract into a new private
 temporary directory. Run `sh ./run.sh --quick --mode synthetic` for an explicitly
-synthetic smoke, then `sh ./run.sh --duration 5s --warmup 1s --repeats 9` for real
-engine comparisons. Nine rounds rotate every candidate through every position.
+synthetic smoke, then `sh ./run.sh --quick --mode real` to verify real-engine
+startup and preflights. Only after that passes, run
+`sh ./run.sh --duration 5s --warmup 1s --repeats 9` for real engine comparisons.
+Nine rounds rotate every candidate through every position.
 The runner creates another private temporary results directory, prints its path,
 and retains logs, isolated configurations, raw JSONL and machine information.
 
@@ -19,6 +21,14 @@ use the same content handlers. The external topology is client → bridge → st
 Caddy; the bridge reuses the same AppSec Handler, transport and limits. The
 in-process topology is client → bundled Caddy AppSec → original handler. This
 controls enforcement implementation while measuring the additional proxy hop.
+
+Body-free GET/static requests send no Content-Type. Small POSTs use JSON; the
+upload workload sends a complete multipart form containing a 256 KiB file.
+Preflight and timed requests use identical bodies and content types, and origin
+readback verifies the complete multipart bytes. Do not relax native WAF rules
+to make a mismatched benchmark payload pass. The blocking preflight uses the
+pinned in-band `.env` rule; the generic CrowdSec test rule is out-of-band and
+does not establish synchronous HTTP denial.
 
 The real engine uses private SQLite/LAPI credentials and unused loopback ports.
 Its WAF profiles combine pinned Hub defaults, CRS, schema and native rate-limit
@@ -61,4 +71,7 @@ when packaging uncommitted work. This bundle does not tag, commit or release.
 WSL may host the verified archives using the Windows-built `artifact-server` and
 a separate temporary Cloudflare Quick Tunnel pointing at that listener. Keep the
 Controller's existing tunnel and services running. Verify the HTTPS download's
-hash before sharing it. WSL is not a benchmark or development environment.
+hash before sharing it. Maintainer-authorized isolated WSL runs can validate
+the Windows-built artifacts and all workload paths before VPS delivery. Record
+the actual WSL Ubuntu version and distinguish these functional runs from Ubuntu
+24.04 VPS performance/acceptance. Do not install a Go toolchain or build in WSL.

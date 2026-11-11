@@ -5,6 +5,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,7 +18,43 @@ import (
 
 	"github.com/caddyserver/caddy/v2"
 	_ "github.com/caddyserver/caddy/v2/modules/standard"
+	"gopkg.in/yaml.v3"
 )
+
+func TestAcquisitionTimeoutUsesDurationScalar(t *testing.T) {
+	ports := map[string]string{"waf": "127.0.0.1:41001", "bot": "127.0.0.1:41002", "combined": "127.0.0.1:41003"}
+	example, err := os.ReadFile(filepath.Join("..", "..", "modules", "appsec", "profiles", "acquis.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, source := range map[string]string{"generated": engineAcquisition(ports), "operator-example": string(example)} {
+		t.Run(name, func(t *testing.T) {
+			decoder := yaml.NewDecoder(strings.NewReader(source))
+			count := 0
+			for {
+				var cfg struct {
+					Name            string         `yaml:"name"`
+					BodyReadTimeout *time.Duration `yaml:"body_read_timeout"`
+				}
+				err := decoder.Decode(&cfg)
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				if err != nil {
+					t.Fatalf("acquisition %d cannot decode duration: %v", count, err)
+				}
+				if cfg.BodyReadTimeout == nil || *cfg.BodyReadTimeout != 0 {
+					t.Fatalf("%s: body timeout must be explicitly disabled", cfg.Name)
+				}
+				t.Logf("%s: body_read_timeout decodes to explicit zero duration", cfg.Name)
+				count++
+			}
+			if count != 3 {
+				t.Fatalf("want WAF, Bot and combined acquisitions; got %d", count)
+			}
+		})
+	}
+}
 
 func TestBundleIntegrityRejectsChangedBinary(t *testing.T) {
 	dir := t.TempDir()
@@ -138,6 +177,47 @@ func TestPreflightRejectsChallengeHTTP200(t *testing.T) {
 	}
 }
 
+func TestNativeDenialPreflightUsesBlockingRules(t *testing.T) {
+	for _, originOnDenial := range []bool{false, true} {
+		t.Run(fmt.Sprintf("origin_on_denial_%t", originOnDenial), func(t *testing.T) {
+			var loginRequests int
+			engine := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				t.Logf("native preflight method=%s path=%s", r.Method, r.URL.Path)
+				switch r.URL.Path {
+				case "/.env", "/", "/api/items":
+					if originOnDenial {
+						w.Header().Set("X-Benchmark-Origin", "unexpected-origin")
+					}
+					w.WriteHeader(http.StatusForbidden)
+				case "/login":
+					loginRequests++
+					if loginRequests > 5 {
+						w.WriteHeader(http.StatusTooManyRequests)
+					}
+				default:
+					// appsec-default loads appsec-generic-test out of band:
+					// its detection is not a synchronous HTTP denial.
+					w.WriteHeader(http.StatusOK)
+				}
+			}))
+			defer engine.Close()
+			err := probeRemediation(engine.Client(), engine.URL, "real", "waf")
+			if originOnDenial {
+				if err == nil {
+					t.Fatal("a denial that reached origin passed preflight")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if loginRequests != 6 {
+				t.Fatalf("native rate-limit probe skipped: got %d requests", loginRequests)
+			}
+		})
+	}
+}
+
 func TestBodyAndMetadataPreflight(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(originHandler))
 	defer s.Close()
@@ -146,6 +226,70 @@ func TestBodyAndMetadataPreflight(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log("entire upload, Host, method and query preserved")
+}
+
+func TestWorkloadContentTypesAndCompleteMultipartUpload(t *testing.T) {
+	works, err := benchmarkWorkloads()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, w := range works {
+		t.Run(w.Name, func(t *testing.T) {
+			s := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+				data, err := io.ReadAll(r.Body)
+				if err != nil || !bytes.Equal(data, w.Body) {
+					t.Error("request body changed")
+					rw.WriteHeader(400)
+					return
+				}
+				if r.Header.Get("Content-Type") != w.ContentType {
+					t.Error("preflight/load content type differs from workload")
+				}
+				if r.Method == "GET" && r.Header.Get("Content-Type") != "" {
+					t.Error("body-free GET must not invent a content type")
+				}
+				if w.Name == "upload-256k" {
+					r.Body = io.NopCloser(bytes.NewReader(data))
+					reader, err := r.MultipartReader()
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					part, err := reader.NextPart()
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					payload, err := io.ReadAll(part)
+					if err != nil || part.FileName() != "fixture.bin" || !bytes.Equal(payload, bytes.Repeat([]byte("0123456789abcdef"), 16<<10)) {
+						t.Error("multipart file is incomplete or changed")
+					}
+					if _, err = reader.NextPart(); err != io.EOF {
+						t.Error("multipart terminator missing or unexpected extra part")
+					}
+				}
+				rw.Header().Set("X-Benchmark-Origin", "owned")
+				rw.Header().Set("X-Benchmark-Method", r.Method)
+				rw.Header().Set("X-Benchmark-Target", r.URL.RequestURI())
+				rw.Header().Set("X-Benchmark-Host", r.Host)
+				if w.Static {
+					rw.Header().Set("X-Benchmark-Origin", "owned-static")
+					io.WriteString(rw, "benchmark-static-file\n")
+				} else {
+					io.WriteString(rw, digest(data))
+				}
+			}))
+			defer s.Close()
+			if err := check(s.Client(), s.URL, w); err != nil {
+				t.Fatal(err)
+			}
+			m := load(context.Background(), s.Client(), s.URL, w, 20*time.Millisecond, 1)
+			if m.Requests == 0 || m.Errors != 0 {
+				t.Fatalf("invalid workload requests=%d errors=%d", m.Requests, m.Errors)
+			}
+			t.Logf("preflight and load preserve %s, bytes=%d content_type=%q", w.Method, len(w.Body), w.ContentType)
+		})
+	}
 }
 
 func TestHistogramAndBalancedPositions(t *testing.T) {

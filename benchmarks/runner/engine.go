@@ -92,18 +92,7 @@ func startEngine(ctx context.Context, bundle, root string) (*child, map[string]s
 	if err = os.WriteFile(creds, []byte("url: http://"+api+"/\n"), 0600); err != nil {
 		return nil, nil, "", err
 	}
-	var acquisition strings.Builder
-	for _, p := range []string{"waf", "bot", "combined"} {
-		fmt.Fprintf(&acquisition, "---\nsource: appsec\nname: benchmark-%s\nlisten_addr: %s\npath: /\nbody_read_timeout: 0\nappsec_configs:\n", p, ports[p])
-		if p != "bot" {
-			acquisition.WriteString("  - crowdsecurity/appsec-default\n  - trueops/native-waf\n  - trueops/native-features\n")
-		}
-		if p != "waf" {
-			acquisition.WriteString("  - crowdsecurity/appsec-bot-challenge-scoring\n  - crowdsecurity/appsec-bot-challenge-scoring-balanced\n  - benchmark/site-a-challenge\n")
-		}
-		acquisition.WriteString("labels:\n  type: appsec\n  site: benchmark-site-a\n")
-	}
-	if err = os.WriteFile(filepath.Join(dir, "acquis.yaml"), []byte(acquisition.String()), 0600); err != nil {
+	if err = os.WriteFile(filepath.Join(dir, "acquis.yaml"), []byte(engineAcquisition(ports)), 0600); err != nil {
 		return nil, nil, "", err
 	}
 	cscli := filepath.Join(bundle, "engine", "cscli")
@@ -204,6 +193,22 @@ func extractCRS(archive, dataDir string) error {
 		}
 	}
 	return nil
+}
+
+func engineAcquisition(ports map[string]string) string {
+	var acquisition strings.Builder
+	for _, p := range []string{"waf", "bot", "combined"} {
+		// CrowdSec v1.8.2 decodes this into *time.Duration; numeric YAML zero fails.
+		fmt.Fprintf(&acquisition, "---\nsource: appsec\nname: benchmark-%s\nlisten_addr: %s\npath: /\nbody_read_timeout: \"0s\"\nappsec_configs:\n", p, ports[p])
+		if p != "bot" {
+			acquisition.WriteString("  - crowdsecurity/appsec-default\n  - trueops/native-waf\n  - trueops/native-features\n")
+		}
+		if p != "waf" {
+			acquisition.WriteString("  - crowdsecurity/appsec-bot-challenge-scoring\n  - crowdsecurity/appsec-bot-challenge-scoring-balanced\n  - benchmark/site-a-challenge\n")
+		}
+		acquisition.WriteString("labels:\n  type: appsec\n  site: benchmark-site-a\n")
+	}
+	return acquisition.String()
 }
 
 func engineConfig(dir, addr string) string {

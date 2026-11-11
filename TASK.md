@@ -178,7 +178,7 @@ and [ban/429 tests](https://github.com/crowdsecurity/crowdsec/blob/3d369d64eb3e9
   must come from the acceptance workloads, not prototype constants.
 - The engine currently accepts partial bodies after its own read timeout or
   unexpected EOF. The reviewed deployment must disable its separate
-  `body_read_timeout` (`0`) and send a completely captured body with exact length;
+  `body_read_timeout` (`"0s"`, a YAML duration string) and send a completely captured body with exact length;
   any failed/incomplete outbound transfer invalidates allow. Include a deliberately
   truncated/slow engine transfer in integration acceptance rather than trusting
   HTTP 200. Engine authentication/body defaults are not our product budgets.

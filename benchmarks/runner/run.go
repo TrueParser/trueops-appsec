@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -95,7 +94,10 @@ func run(ctx context.Context, o options) error {
 		h := handlerConfig(endpoints[p], key, p)
 		cs = append(cs, candidate{Name: "external-" + p, Policy: p, Security: h, External: true, Binary: stock}, candidate{Name: "inprocess-" + p, Policy: p, Security: h, Binary: bundle})
 	}
-	works := []workload{{Name: "get", Method: "GET", Path: "/get?q=1&q=2"}, {Name: "post", Method: "POST", Path: "/post", Body: []byte(`{"name":"benchmark"}`)}, {Name: "upload-256k", Method: "POST", Path: "/upload", Body: bytes.Repeat([]byte("0123456789abcdef"), 16<<10)}, {Name: "static", Method: "GET", Path: "/static/fixture.txt", Static: true}, {Name: "excluded", Method: "POST", Path: "/excluded/body", Body: []byte("excluded")}}
+	works, err := benchmarkWorkloads()
+	if err != nil {
+		return err
+	}
 	if o.Quick {
 		o.Repeats = 3
 		o.Duration = 200 * time.Millisecond
@@ -276,7 +278,9 @@ func probeRemediation(client *http.Client, base, mode, policy string) error {
 	if policy == "bot" && mode == "real" {
 		return nil
 	} // Browser verification is explicitly pending.
-	path := "/crowdsec-test-NtktlJHV4TfBSK3wvlhiOBnl"
+	// The pinned appsec-default profile loads appsec-generic-test out of band;
+	// use its in-band vpatch-env-access rule to require a synchronous denial.
+	path := "/.env"
 	if mode == "synthetic" {
 		path = "/appsec-test"
 	}
@@ -290,7 +294,7 @@ func probeRemediation(client *http.Client, base, mode, policy string) error {
 	io.Copy(io.Discard, r.Body)
 	r.Body.Close()
 	if r.StatusCode != 403 || r.Header.Get("X-Benchmark-Origin") != "" {
-		return fmt.Errorf("native denial preflight failed: %d", r.StatusCode)
+		return fmt.Errorf("native denial preflight failed: status=%d origin_reached=%t", r.StatusCode, r.Header.Get("X-Benchmark-Origin") != "")
 	}
 	if mode == "real" {
 		for _, tc := range []struct{ method, path, body string }{

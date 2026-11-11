@@ -15,7 +15,7 @@ source: appsec
 name: site-a-combined
 listen_addr: 127.0.0.1:7422
 path: /
-body_read_timeout: 0
+body_read_timeout: "0s"
 appsec_configs:
   - crowdsecurity/appsec-default
   - trueops/native-waf
@@ -30,7 +30,7 @@ source: appsec
 name: site-a-waf
 listen_addr: 127.0.0.1:7423
 path: /
-body_read_timeout: 0
+body_read_timeout: "0s"
 appsec_configs:
   - crowdsecurity/appsec-default
   - trueops/native-waf
@@ -42,7 +42,7 @@ source: appsec
 name: site-a-bot
 listen_addr: 127.0.0.1:7424
 path: /
-body_read_timeout: 0
+body_read_timeout: "0s"
 appsec_configs:
   - crowdsecurity/appsec-bot-challenge-scoring
   - crowdsecurity/appsec-bot-challenge-scoring-balanced

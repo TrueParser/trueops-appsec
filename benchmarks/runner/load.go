@@ -15,6 +15,7 @@ import (
 
 type workload struct {
 	Name, Method, Path, Cookie string
+	ContentType                string
 	Body                       []byte
 	Static                     bool
 	Challenge                  bool
@@ -37,7 +38,9 @@ func check(client *http.Client, base string, w workload) error {
 	}
 	req.Host = "appsec-benchmark.test"
 	req.Header.Set("User-Agent", agent)
-	req.Header.Set("Content-Type", "application/octet-stream")
+	if w.ContentType != "" {
+		req.Header.Set("Content-Type", w.ContentType)
+	}
 	if w.Cookie != "" {
 		req.Header.Set("Cookie", w.Cookie)
 	}
@@ -124,7 +127,9 @@ func load(ctx context.Context, client *http.Client, base string, w workload, dur
 				req, _ := http.NewRequestWithContext(ctx, w.Method, base+w.Path, bytes.NewReader(w.Body))
 				req.Host = "appsec-benchmark.test"
 				req.Header.Set("User-Agent", agent)
-				req.Header.Set("Content-Type", "application/octet-stream")
+				if w.ContentType != "" {
+					req.Header.Set("Content-Type", w.ContentType)
+				}
 				if w.Cookie != "" {
 					req.Header.Set("Cookie", w.Cookie)
 				}

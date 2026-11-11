@@ -6,6 +6,7 @@ require (
 	github.com/caddyserver/caddy/v2 v2.11.9
 	go.uber.org/zap v1.28.0
 	golang.org/x/net v0.60.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -168,6 +169,5 @@ require (
 	google.golang.org/grpc v1.83.2 // indirect
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.6.2 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	howett.net/plist v1.0.1 // indirect
 )

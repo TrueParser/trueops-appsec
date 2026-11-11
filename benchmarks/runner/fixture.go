@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -9,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -23,6 +25,28 @@ import (
 )
 
 const agent = "TrueOps-AppSec-Benchmark/1.0"
+
+func benchmarkWorkloads() ([]workload, error) {
+	var upload bytes.Buffer
+	form := multipart.NewWriter(&upload)
+	file, err := form.CreateFormFile("file", "fixture.bin")
+	if err != nil {
+		return nil, err
+	}
+	if _, err = file.Write(bytes.Repeat([]byte("0123456789abcdef"), 16<<10)); err != nil {
+		return nil, err
+	}
+	if err = form.Close(); err != nil {
+		return nil, err
+	}
+	return []workload{
+		{Name: "get", Method: "GET", Path: "/get?q=1&q=2"},
+		{Name: "post", Method: "POST", Path: "/post", ContentType: "application/json", Body: []byte(`{"name":"benchmark"}`)},
+		{Name: "upload-256k", Method: "POST", Path: "/upload", ContentType: form.FormDataContentType(), Body: upload.Bytes()},
+		{Name: "static", Method: "GET", Path: "/static/fixture.txt", Static: true},
+		{Name: "excluded", Method: "POST", Path: "/excluded/body", ContentType: "application/json", Body: []byte(`{"name":"excluded"}`)},
+	}, nil
+}
 
 func digest(data []byte) string { v := sha256.Sum256(data); return hex.EncodeToString(v[:]) }
 
