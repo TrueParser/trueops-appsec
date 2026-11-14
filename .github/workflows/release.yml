@@ -73,9 +73,10 @@ jobs:
             $unformatted = @(gofmt -l $goFile)
             if ($unformatted.Count -gt 0) { throw "Run gofmt on $goFile" }
           }
+          go build -trimpath ./cmd/caddy
+          $env:TRUEOPS_POOL_CADDY = (Join-Path $PWD 'caddy.exe')
           go test -v ./...
           go vet ./...
-          go build -trimpath ./cmd/caddy
           git diff --exit-code -- go.mod go.sum
 
       - name: Cross-build Linux candidates and record manifests
@@ -92,6 +93,7 @@ jobs:
             $env:GOOS = 'linux'
             $env:GOARCH = $arch
             go build -trimpath -o "$candidate/caddy" ./cmd/caddy
+            go test -c -o "$candidate/pool.test" ./tests/pool
             $binaryHash = (Get-FileHash -Algorithm SHA256 "$candidate/caddy").Hash.ToLowerInvariant()
             go version -m "$candidate/caddy" | Set-Content -Encoding utf8NoBOM "$candidate/build-info.txt"
             ./scripts/package-notices.ps1 -Destination $candidate
@@ -175,6 +177,9 @@ jobs:
           trap - EXIT
           cat caddy.log
           printf '%s  caddy\n' "$binary_hash" | sha256sum --check --strict
+          chmod +x pool.test
+          TRUEOPS_POOL_CADDY="$PWD/caddy" ./pool.test -test.v \
+            -test.run '^TestCandidatePool(Cutovers|RestartAndReload|AdminBoundary)$' -test.count=1
           mkdir -p ../../release
           archive="trueops-appsec_${RELEASE_TAG}_linux_${TARGET_ARCH}.tar.gz"
           test -s THIRD_PARTY_NOTICES

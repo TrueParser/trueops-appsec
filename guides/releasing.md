@@ -61,6 +61,12 @@ Windows performs formatting checks, dependency verification, `go test -v ./...`,
 source commit, distribution/upstream versions, toolchain, module versions,
 target, build flags and binary SHA-256 in each candidate manifest.
 
+The host build is supplied to native pool tests in the Windows suite. The same
+Windows toolchain cross-builds the self-contained pool test executable for each
+Linux target. Ubuntu jobs execute it against the exact candidate to verify pool
+cutovers, restart/reload durability and native Admin boundaries. The runner and
+disposable origin fixtures are acceptance tooling, excluded from release archives.
+
 Ubuntu runners execute the matching Windows-built binary, verify its checksum,
 run native Caddy diagnostics/configuration validation and serve a loopback HTTP
 request. These jobs do not install or use a Go toolchain for development.

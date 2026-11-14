@@ -121,6 +121,159 @@ resource limits cannot be bypassed by this setting. Internal challenge paths
 never continue to the origin. Debug diagnostics distinguish failure passthrough
 from native allow; nothing is cached and no inspection is retried.
 
+## Dynamic upstream pools
+
+The bundled pool module consumes unchanged upstream Caddy. Pool updates replace
+an upstream generation without reloading Caddy's HTTP configuration, listeners
+or security handlers. Applied updates are saved through Caddy's native storage
+before success is acknowledged. Ordinary application requests perform no
+storage access.
+
+Configure the pool app, lease middleware and native reverse proxy together:
+
+```json
+{
+  "admin": {"listen": "127.0.0.1:2019"},
+  "apps": {
+    "trueops_pools": {
+      "state_id": "edge-a",
+      "pools": {
+        "example": {"revision": 1, "targets": ["127.0.0.1:9001", "127.0.0.1:9002"]}
+      }
+    },
+    "http": {
+      "servers": {
+        "example": {
+          "listen": ["127.0.0.1:8080"],
+          "routes": [{"handle": [
+            {"handler": "trueops_pool", "pool": "example"},
+            {"handler": "reverse_proxy", "dynamic_upstreams": {
+              "source": "trueops_pool", "pool": "example"
+            }}
+          ]}]
+        }
+      }
+    }
+  }
+}
+```
+
+Place existing security handlers before `trueops_pool`. The pool source and
+middleware must reference the same configured pool. Missing or mismatched
+leases yield no eligible upstreams, including when static upstreams were
+accidentally configured. Public request headers cannot select the pool.
+Configuration uses Caddy JSON. The module does not register a Caddyfile directive.
+
+The following routes extend the existing Caddy Admin endpoint; they do not
+create another listener. Keep that endpoint private and retain its native
+trust and permission controls.
+
+- `GET /upstream-pools/example`: current instance, revision, targets, active
+  request count and older generations with requests still executing.
+- `PUT /upstream-pools/example`: complete replacement using this shape:
+
+  ```json
+  {
+    "expected_instance": "instance returned by GET",
+    "expected_revision": 1,
+    "revision": 2,
+    "targets": ["127.0.0.1:9003", "127.0.0.1:9004"]
+  }
+  ```
+
+The revision must increase by one. An exact duplicate of the latest update is
+idempotent; a conflicting revision or pool instance returns HTTP 409.
+Targets are distinct literal single TCP or Unix socket addresses, not public
+placeholders, URLs or port ranges. Control messages are bounded to 1 MiB;
+this does not impose a limit on application bodies. Invalid/unknown JSON fields
+or multiple JSON documents return HTTP 400; oversized updates return HTTP 413.
+Unsupported methods return HTTP 405. Reads queue no work and return `no-store`.
+
+Each admitted request retains its generation through native proxy retries.
+Requests admitted after replacement select the new generation; earlier requests
+may finish on the old one. Acquisition and replacement share one short critical
+section, with no lock held during request processing or storage I/O. Cancellation alone does
+not release a lease while its downstream handler is still executing. Completed
+retired generations are removed rather than retained as history.
+
+The caller must verify target readiness before replacement. Dynamic upstreams
+do not receive Caddy's built-in active health checks. The module neither starts
+nor stops application processes. A successful PUT confirms pool application,
+not old-target drain completion: observe `draining` before retiring old targets.
+A wait timeout must not be interpreted as permission to kill active work.
+
+`state_id` identifies this Caddy instance's durable pool namespace. Keep it
+stable across restarts and unique to this independently controlled gateway;
+do not share it between simultaneously running Caddy processes using shared
+storage. Keep the configured storage backend/location bound to that namespace.
+Changing the namespace deliberately creates a different set of pools.
+
+The configured revisions/targets are immutable bootstrap intent for that
+namespace. Subsequent changes use the pool API. A mismatched bootstrap fails
+configuration loading rather than silently replacing applied state. Caddy's
+`/config/` remains bootstrap configuration; `/upstream-pools/` is runtime evidence.
+Removing a pool from configuration does not delete its checkpoint. Do not reuse
+its identity for an unrelated application; use a new pool ID or namespace.
+
+The module stores one versioned checkpoint per updated pool under
+`trueops_pools/` in Caddy's configured storage, using hashed namespace/pool keys.
+Caddy's native storage lock serializes checkpoint comparisons and writes.
+An ordinary reload with unchanged namespace/bootstrap retains the live pool,
+its instance and admitted-generation counters through Caddy's native usage pool.
+A process restart restores the saved applied targets under a new instance.
+Old-process mutations are rejected; read the current instance before updating.
+
+Storage errors return HTTP 503 and leave the current serving generation unchanged.
+A failed/lost response can still have committed storage effects: inspect runtime
+state or deliberately retry the exact reviewed update, never retire targets from
+an HTTP acknowledgment alone. An exact retry can confirm an already-stored plan.
+Corrupt/incompatible saved state fails startup instead of falling back to old
+targets. Preserve and back up Caddy's data/storage: an absent checkpoint on a new
+process is indistinguishable from first use and initializes the configured
+bootstrap. This is not a guarantee against lost storage or physical power loss.
+
+Native file storage is covered by restart/failure acceptance. Custom backends
+must satisfy Caddy's storage consistency, locking and cancellation contract and
+need their own native acceptance. Full configuration changes and deployment
+operations remain the caller's coordinated responsibility. This module does not
+repair Caddy's upstream reload lifecycle bug, promise atomicity across gateways,
+or establish PHP/FastCGI, WebSocket or complete application deployment acceptance.
+
+The self-contained candidate test uses disposable loopback origins, private
+ephemeral certificates and verified TLS. On Windows, set `TRUEOPS_POOL_CADDY`
+to the candidate path and run `go test -v ./tests/pool`. Without a candidate,
+these tests skip. For native Linux testing, cross-build the candidate and test
+executable on Windows, then execute those exact artifacts on the target.
+The performance test compares native static upstreams and the pool path in the
+same candidate; it is a short shared-host diagnostic, not a capacity budget.
+Enable the `trueops_pools` logger at DEBUG for bounded update metadata, without
+bodies or credentials.
+
+The separate acceptance bundle contains `pool-origin` and
+`run-pool-acceptance.sh`; production release archives contain neither fixture.
+On each authorized test Machine, extract into a new
+private temporary directory and run `sh run-pool-acceptance.sh origin PRIVATE_IP
+NODE_ID`. This starts only disposable V1/V2 fixtures on that existing private
+address, ports 52991/52992, and expires after 30 minutes. Those ports must be free;
+no installed service is changed or restarted. Fixture control endpoints are
+test-only and must remain on the private test network.
+
+Once every origin is running, execute `sh run-pool-acceptance.sh gateway IP1 IP2
+IP3` on the test gateway, supplying the actual private addresses. The argument
+list supports any target count of at least two. The runner uses an isolated
+candidate Caddy on ephemeral loopback ports and sends requests through it to
+the remote fixtures. It checks a held remote request, pool cutovers and bodies,
+then records per-origin node/version/request counts in `report.log`. It also
+compares static and dynamic upstream paths against the same remote origins.
+External fixture tests are gated by `TRUEOPS_APPSEC_TEST_LOCAL=1` outside CI;
+the explicit gateway command sets that opt-in.
+
+This exercises the private cross-Machine backend path. Client TLS load is
+generated on the gateway itself; it is not an Internet-client or real runtime
+deployment acceptance claim. Fixture readiness preflight is not production
+health checking, and fixture retirement controls are not application lifecycle
+operations. A failed test preserves its report and never modifies live Caddy.
+
 ## One binary, a reviewed module set
 
 The distribution model is a versioned binary download with a fixed, reviewed

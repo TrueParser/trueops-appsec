@@ -305,3 +305,20 @@ created to work around that.
 - [x] Run focused integration/regression tests, formatting, the full Windows
   test suite, vet and build; report native evidence and genuine blockers.
 - [x] Slice complete.
+
+## 4. Isolated dynamic upstream pool prototype
+
+- [x] Audit: Confirm pinned Caddy extension points, launcher, lifecycle and build owners without changing upstream source.
+- [x] Implementation: Add `modules/upstreampool/` and its launcher import with generation-pinned requests, revision-checked private Admin pool updates and honest drain readback. Preserve AppSec and native transports; no new listener, database, deployment engine or upstream patch.
+- [x] Coverage: Prove atomic pool replacement, retry pinning, pre-dial and active-request drain ownership, stale/duplicate updates, isolation and failure behavior with focused tests.
+- [x] Native WSL acceptance: Build on Windows and exercise the exact unpublished candidate on isolated WSL ports using fresh TLS, HTTP/2, persistent connections, bodies and repeated cutovers; preserve Controller, tunnel and installed services.
+- [x] Documentation and verification: Document prototype configuration, API, volatile state and limits; verify formatting, diagnostics, tests, vet/build and measured overhead before completion. Do not claim complete application deployment acceptance.
+- [x] VPS distribution and acceptance: Transfer the exact unpublished candidate to the three authorized VPSs over approved SSH, verify checksums and execute isolated cross-Machine pool-cutover and comparative overhead tests. Remove owned test processes and temporary Network access through existing owners. Production hardening, full distributed application deployment acceptance and any merge/release remain pending until verified and authorized.
+
+## 5. Release-ready dynamic upstream pools
+
+- [x] Audit: Review `modules/upstreampool/`, native acceptance and release owners; establish restart/reload, active-request, Admin authority and applied-state contracts before persistence changes.
+- [x] Implementation: Harden the existing pool module through supported Caddy ownership/lifecycle interfaces and the approved restart contract. Preserve direct native proxy handling, exact revision/instance fencing and AppSec; no upstream patch, management dependency, database or extra service.
+- [x] Coverage: Add missing focused concurrency, malformed-control, restart/reload, uncertain-delivery and cleanup proof. Verify errors preserve serving state and requests retain their admitted generation; keep native fixtures outside production archives.
+- [x] Documentation and packaging: Replace prototype-only guidance/tool names with the supported production contract; use the existing manifest/checksum/license and native CI owners without publishing, tagging, committing or merging.
+- [ ] Verification and completion: Run focused diagnostics/tests, the final Windows suite/vet/build and exact-candidate Ubuntu three-VPS acceptance. Remove owned temporary artifacts/processes/access, report unexecuted target gates honestly and prepare the reviewed source for maintainer tagging/publication.
